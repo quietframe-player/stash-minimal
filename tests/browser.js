@@ -29,7 +29,45 @@ export default async function testTheme(page, options) {
     check('local font decoded', await page.evaluate(() => document.fonts.check('14px "Stash Geist"')));
     const card = await colors('.scene-card');
     check('cards have no chrome', card.background === 'rgba(0, 0, 0, 0)' && card.border === '0px', card);
+    const emptyMetadataGap = await page.locator('.scene-card').first().evaluate(card => {
+      const date = card.querySelector('.scene-card__date').getBoundingClientRect();
+      const tags = card.querySelector('.card-popovers').getBoundingClientRect();
+      return tags.top - date.bottom;
+    });
+    check('empty metadata does not reserve space', emptyMetadataGap <= 12, emptyMetadataGap);
     check('desktop has no horizontal overflow', await noOverflow());
+    const navigation = page.locator('.minimal-navigation');
+    check('primary native navigation visible', await navigation.getByRole('link', { name: 'Scenes', exact: true }).isVisible()
+      && await navigation.getByRole('link', { name: 'Images', exact: true }).isVisible()
+      && await navigation.getByRole('link', { name: 'Performers', exact: true }).isVisible());
+    await navigation.getByRole('button', { name: 'More', exact: true }).click();
+    for (const name of ['Groups', 'Markers', 'Galleries', 'Studios', 'Tags']) {
+      check(name + ' remains available', await navigation.getByRole('link', { name, exact: true }).isVisible());
+    }
+    await navigation.getByRole('link', { name: 'Tags', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/tags');
+    check('More links use native routing', page.url().split('?')[0].endsWith('/tags'));
+    await page.goto(options.baseURL + '/scenes?z=2');
+    await page.locator('.scene-card').first().waitFor();
+    const utilities = page.locator('.navbar-buttons');
+    await utilities.getByRole('button', { name: 'More actions', exact: true }).click();
+    check('secondary utility actions visible', await utilities.getByRole('button', { name: 'Help', exact: true }).isVisible()
+      && await utilities.getByRole('button', { name: 'Statistics', exact: true }).isVisible()
+      && await utilities.getByRole('button', { name: 'Donate', exact: true }).isVisible());
+    await utilities.getByRole('button', { name: 'Statistics', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/stats');
+    check('Statistics uses native routing', page.url().split('?')[0].endsWith('/stats'));
+    for (const [name, route, more] of [['Images', '/images', false], ['Performers', '/performers', false],
+      ['Groups', '/groups', true], ['Markers', '/scenes/markers', true], ['Galleries', '/galleries', true],
+      ['Studios', '/studios', true], ['Tags', '/tags', true]]) {
+      if (more) await navigation.getByRole('button', { name: 'More', exact: true }).click();
+      await navigation.getByRole('link', { name, exact: true }).click();
+      await page.waitForURL(url => url.pathname === route);
+      check(name + ' page remains usable', await navigation.getByRole('button', { name: 'More', exact: true }).isVisible()
+        && await noOverflow());
+    }
+    await page.goto(options.baseURL + '/scenes?z=2');
+    await page.locator('.scene-card').first().waitFor();
     await page.screenshot({ path: options.reportDir + '/' + options.browser + '-library.png' });
     await page.locator('.sort-by-select .dropdown-toggle').click();
     const menu = await colors('.dropdown-menu.show');
@@ -41,13 +79,36 @@ export default async function testTheme(page, options) {
     check('keyboard focus visible', focus.outline === 'solid' && focus.color === 'rgb(82, 168, 255)', focus);
     await page.goto(options.baseURL + '/scenes/' + options.sceneId);
     await page.locator('video').first().waitFor();
+    await page.locator('.vjs-marker-tooltip').waitFor({ state: 'attached' });
     check('native video player remains available', await page.locator('video').count() > 0);
+    await page.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
+    check('scene details start collapsed', await page.locator('.scene-tabs').isHidden()
+      && await page.locator('.scene-player-container.expanded').count() === 1);
+    await page.getByRole('button', { name: 'Show scene details', exact: true }).click();
+    check('native detail panel can be reopened', await page.locator('.scene-tabs').isVisible());
+    await page.getByRole('button', { name: 'Hide scene details', exact: true }).click();
+    check('native detail panel closes', await page.locator('.scene-tabs').isHidden());
+    await page.locator('.vjs-big-play-button').click();
+    await page.waitForFunction(() => { const video = document.querySelector('video'); return video && !video.paused && video.currentTime > 0; });
+    check('native playback starts with details collapsed', await page.locator('.scene-tabs').isHidden());
+    await page.locator('.vjs-play-control').click();
     check('detail page has no horizontal overflow', await noOverflow());
     await page.screenshot({ path: options.reportDir + '/' + options.browser + '-detail.png' });
+    await page.goto(options.baseURL + '/scenes?z=2');
+    await page.locator('.scene-card').first().waitFor();
+    await page.locator('.scene-card .card-section-title').first().click();
+    await page.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
+    check('details collapse after native SPA navigation', await page.locator('.scene-tabs').isHidden());
+    await page.locator('.vjs-marker-tooltip').waitFor({ state: 'attached' });
     await page.goto(options.baseURL + '/settings?tab=plugins');
     await page.getByText('Stash Minimal', { exact: true }).first().waitFor();
     check('package appears in native settings', await page.getByText('Stash Minimal', { exact: true }).count() > 0);
     check('settings has no horizontal overflow', await noOverflow());
+    for (const tab of ['Interface', 'Tasks', 'System']) {
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+      await page.getByRole('tabpanel', { name: tab, exact: true }).waitFor();
+      check(tab + ' settings remain usable', await noOverflow());
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(options.baseURL + '/scenes?z=2');
     await page.locator('.scene-card').first().waitFor();
@@ -59,7 +120,18 @@ export default async function testTheme(page, options) {
     await page.locator('.navbar-collapse.show').waitFor();
     check('mobile navigation opens', await page.locator('.navbar-collapse.show').count() === 1);
     check('open mobile navigation has no overflow', await noOverflow());
-    await page.locator('.navbar-toggler').click();
+    check('mobile primary pages visible', await navigation.getByRole('link', { name: 'Scenes', exact: true }).isVisible());
+    await navigation.getByRole('button', { name: 'More', exact: true }).click();
+    check('mobile secondary pages visible', await navigation.getByRole('link', { name: 'Studios', exact: true }).isVisible());
+    await navigation.getByRole('link', { name: 'Studios', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/studios');
+    check('mobile More links work', page.url().split('?')[0].endsWith('/studios'));
+    await page.goto(options.baseURL + '/scenes/' + options.sceneId);
+    await page.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
+    check('mobile details start collapsed', await page.locator('.scene-tabs').isHidden());
+    await page.getByRole('button', { name: 'Show scene details', exact: true }).click();
+    check('mobile details remain accessible', await page.locator('.scene-tabs').isVisible());
+    check('mobile detail has no overflow', await noOverflow());
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const duration = await page.locator('.btn').first().evaluate(el => getComputedStyle(el).transitionDuration);
     check('respects reduced motion', duration === '0s', duration);
@@ -67,6 +139,8 @@ export default async function testTheme(page, options) {
     return { browser: options.browser, passed: true, results };
   } catch (error) {
     await page.screenshot({ path: options.reportDir + '/' + options.browser + '-failure.png' });
-    return { browser: options.browser, passed: false, results, error: error.message, errors };
+    const navigation = await page.locator('.minimal-navigation').evaluateAll(items => items.map(el => ({ display: getComputedStyle(el).display,
+      children: [...el.querySelectorAll('a,button,.navbar-nav')].map(child => ({ tag: child.tagName, text: child.textContent, display: getComputedStyle(child).display })) })));
+    return { browser: options.browser, passed: false, results, url: page.url(), error: error.message, errors, navigation };
   }
 }
