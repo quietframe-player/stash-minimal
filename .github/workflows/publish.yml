@@ -34,7 +34,10 @@ jobs:
         with:
           name: integration-${{ matrix.browser }}
           include-hidden-files: true
-          path: .tmp/
+          path: |
+            .tmp/*/*.json
+            .tmp/*/*.log
+            .tmp/*/*.png
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [check, integration]
