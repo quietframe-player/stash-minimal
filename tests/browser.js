@@ -1,12 +1,12 @@
 export default async function testTheme(page, options) {
   const results = [];
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => errors.push({ message: error.message, url: page.url() }));
   const check = (name, passed, detail) => {
     results.push({ name, passed, detail });
     if (!passed) throw new Error(name + ': ' + JSON.stringify(detail));
   };
-  const noOverflow = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+  const noOverflow = (target = page) => target.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   const colors = selector => page.locator(selector).first().evaluate(el => {
     const s = getComputedStyle(el);
     return { color: s.color, background: s.backgroundColor, border: s.borderTopWidth, font: s.fontFamily };
@@ -37,6 +37,20 @@ export default async function testTheme(page, options) {
     check('empty metadata does not reserve space', emptyMetadataGap <= 12, emptyMetadataGap);
     check('desktop has no horizontal overflow', await noOverflow());
     const navigation = page.locator('.minimal-navigation');
+    const openScenes = async () => {
+      const toggle = page.locator('.navbar-toggler');
+      if (await toggle.isVisible()) {
+        await page.locator('.top-nav .collapsing').waitFor({ state: 'hidden' });
+        if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+        await page.locator('.navbar-collapse.show').waitFor();
+      }
+      await navigation.getByRole('link', { name: 'Scenes', exact: true }).click();
+      await page.locator('.scene-card').first().waitFor();
+      if (await toggle.isVisible()) {
+        await page.locator('.top-nav .collapsing').waitFor({ state: 'hidden' });
+        await page.locator('.navbar-collapse').waitFor({ state: 'hidden' });
+      }
+    };
     check('primary native navigation visible', await navigation.getByRole('link', { name: 'Scenes', exact: true }).isVisible()
       && await navigation.getByRole('link', { name: 'Images', exact: true }).isVisible()
       && await navigation.getByRole('link', { name: 'Performers', exact: true }).isVisible());
@@ -47,7 +61,7 @@ export default async function testTheme(page, options) {
     await navigation.getByRole('link', { name: 'Tags', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/tags');
     check('More links use native routing', page.url().split('?')[0].endsWith('/tags'));
-    await page.goto(options.baseURL + '/scenes?z=2');
+    await openScenes();
     await page.locator('.scene-card').first().waitFor();
     const utilities = page.locator('.navbar-buttons');
     await utilities.getByRole('button', { name: 'More actions', exact: true }).click();
@@ -66,8 +80,9 @@ export default async function testTheme(page, options) {
       check(name + ' page remains usable', await navigation.getByRole('button', { name: 'More', exact: true }).isVisible()
         && await noOverflow());
     }
-    await page.goto(options.baseURL + '/scenes?z=2');
+    await openScenes();
     await page.locator('.scene-card').first().waitFor();
+    await page.waitForLoadState('networkidle');
     await page.screenshot({ path: options.reportDir + '/' + options.browser + '-library.png' });
     await page.locator('.sort-by-select .dropdown-toggle').click();
     const menu = await colors('.dropdown-menu.show');
@@ -77,30 +92,29 @@ export default async function testTheme(page, options) {
     const focus = await page.evaluate(() => ({ outline: getComputedStyle(document.activeElement).outlineStyle,
       color: getComputedStyle(document.activeElement).outlineColor }));
     check('keyboard focus visible', focus.outline === 'solid' && focus.color === 'rgb(82, 168, 255)', focus);
-    await page.goto(options.baseURL + '/scenes/' + options.sceneId);
-    await page.locator('video').first().waitFor();
-    await page.locator('.vjs-marker-tooltip').waitFor({ state: 'attached' });
-    check('native video player remains available', await page.locator('video').count() > 0);
-    await page.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
-    check('scene details start collapsed', await page.locator('.scene-tabs').isHidden()
-      && await page.locator('.scene-player-container.expanded').count() === 1);
-    await page.getByRole('button', { name: 'Show scene details', exact: true }).click();
-    check('native detail panel can be reopened', await page.locator('.scene-tabs').isVisible());
-    await page.getByRole('button', { name: 'Hide scene details', exact: true }).click();
-    check('native detail panel closes', await page.locator('.scene-tabs').isHidden());
-    await page.locator('.vjs-big-play-button').click();
-    await page.waitForFunction(() => { const video = document.querySelector('video'); return video && !video.paused && video.currentTime > 0; });
-    check('native playback starts with details collapsed', await page.locator('.scene-tabs').isHidden());
-    await page.locator('.vjs-play-control').click();
-    check('detail page has no horizontal overflow', await noOverflow());
-    await page.screenshot({ path: options.reportDir + '/' + options.browser + '-detail.png' });
-    await page.goto(options.baseURL + '/scenes?z=2');
-    await page.locator('.scene-card').first().waitFor();
-    await page.locator('.scene-card .card-section-title').first().click();
-    await page.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
-    check('details collapse after native SPA navigation', await page.locator('.scene-tabs').isHidden());
-    await page.locator('.vjs-marker-tooltip').waitFor({ state: 'attached' });
-    await page.goto(options.baseURL + '/settings?tab=plugins');
+    const playerPage = await page.context().newPage();
+    playerPage.on('pageerror', error => errors.push({ message: error.message, url: playerPage.url() }));
+    await playerPage.setViewportSize({ width: 1440, height: 1000 });
+    await playerPage.goto(options.baseURL + '/scenes/' + options.sceneId);
+    await playerPage.locator('video').first().waitFor();
+    await playerPage.locator('.vjs-marker-tooltip').waitFor({ state: 'attached' });
+    check('native video player remains available', await playerPage.locator('video').count() > 0);
+    await playerPage.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
+    check('scene details start collapsed', await playerPage.locator('.scene-tabs').isHidden()
+      && await playerPage.locator('.scene-player-container.expanded').count() === 1);
+    await playerPage.getByRole('button', { name: 'Show scene details', exact: true }).click();
+    check('native detail panel can be reopened', await playerPage.locator('.scene-tabs').isVisible());
+    await playerPage.getByRole('button', { name: 'Hide scene details', exact: true }).click();
+    check('native detail panel closes', await playerPage.locator('.scene-tabs').isHidden());
+    await playerPage.locator('.vjs-big-play-button').click();
+    await playerPage.waitForFunction(() => { const video = document.querySelector('video'); return video && !video.paused && video.currentTime > 0; });
+    check('native playback starts with details collapsed', await playerPage.locator('.scene-tabs').isHidden());
+    await playerPage.locator('.vjs-play-control').click();
+    await playerPage.waitForLoadState('networkidle');
+    check('detail page has no horizontal overflow', await noOverflow(playerPage));
+    await playerPage.screenshot({ path: options.reportDir + '/' + options.browser + '-detail.png' });
+    await utilities.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('tab', { name: 'Plugins', exact: true }).click();
     await page.getByText('Stash Minimal', { exact: true }).first().waitFor();
     check('package appears in native settings', await page.getByText('Stash Minimal', { exact: true }).count() > 0);
     check('settings has no horizontal overflow', await noOverflow());
@@ -110,9 +124,10 @@ export default async function testTheme(page, options) {
       check(tab + ' settings remain usable', await noOverflow());
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(options.baseURL + '/scenes?z=2');
+    await openScenes();
     await page.locator('.scene-card').first().waitFor();
     await page.evaluate(() => document.fonts.ready);
+    await page.waitForLoadState('networkidle');
     check('portrait has no horizontal overflow', await noOverflow());
     check('portrait search avoids zoom', await page.locator('.filtered-list-toolbar .search-term-input input').first().evaluate(el => getComputedStyle(el).fontSize) === '16px');
     await page.screenshot({ path: options.reportDir + '/' + options.browser + '-mobile.png' });
@@ -126,8 +141,11 @@ export default async function testTheme(page, options) {
     await navigation.getByRole('link', { name: 'Studios', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/studios');
     check('mobile More links work', page.url().split('?')[0].endsWith('/studios'));
-    await page.goto(options.baseURL + '/scenes/' + options.sceneId);
+    await openScenes();
+    await page.locator('.scene-card').first().waitFor();
+    await page.locator('.scene-card .card-section-title').first().click();
     await page.getByRole('button', { name: 'Show scene details', exact: true }).waitFor();
+    check('details collapse after native SPA navigation', await page.locator('.scene-tabs').isHidden());
     check('mobile details start collapsed', await page.locator('.scene-tabs').isHidden());
     await page.getByRole('button', { name: 'Show scene details', exact: true }).click();
     check('mobile details remain accessible', await page.locator('.scene-tabs').isVisible());
