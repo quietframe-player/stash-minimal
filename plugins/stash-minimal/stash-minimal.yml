@@ -1,0 +1,9 @@
+name: Stash Minimal
+description: A quiet, compact dark theme inspired by Vercel Geist.
+version: 0.1.0
+url: https://github.com/quietframe-player/stash-minimal
+ui:
+  css:
+    - minimal.css
+  assets:
+    /: assets

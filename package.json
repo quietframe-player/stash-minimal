@@ -1,0 +1,10 @@
+{
+  "name": "stash-minimal",
+  "version": "0.1.0",
+  "releaseDate": "2026-10-02",
+  "private": true,
+  "scripts": {
+    "build": "python3 -B scripts/build.py",
+    "test:integration": "python3 -B scripts/integration.py --apply"
+  }
+}
