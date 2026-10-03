@@ -254,6 +254,7 @@ div.dropdown-menu .dropdown-item.active, div.react-select__menu .react-select__o
 .scene-player-container .vjs-menu-item.vjs-selected { background: var(--minimal-hover); color: var(--minimal-text); }
 
 .table { color: var(--minimal-text); }
+.table thead, .table-list table thead, .package-manager table thead { background-color: var(--minimal-hover); }
 .table th, .table td, .table thead th { border-color: var(--minimal-border); }
 .table-striped tbody tr:nth-of-type(odd) { background: #ffffff03; }
 .table-hover tbody tr:hover { background: var(--minimal-hover); color: var(--minimal-text); }
@@ -274,7 +275,7 @@ div.dropdown-menu .dropdown-item.active, div.react-select__menu .react-select__o
   .top-nav .navbar-collapse { overflow: visible; }
 }
 @media (max-width: 1199.98px) {
-  .minimal-navigation .navbar-nav { flex-direction: column; align-items: stretch; }
+  .top-nav .navbar-collapse .minimal-navigation > .navbar-nav { flex-direction: column; align-items: stretch; }
   .minimal-navigation .nav-link .btn { width: 100%; justify-content: flex-start !important; min-height: 44px; }
   .minimal-navigation .dropdown-menu { position: static; box-shadow: none; margin: 4px 0; }
   .minimal-navigation .dropdown-toggle { min-height: 44px; width: 100%; text-align: left; }

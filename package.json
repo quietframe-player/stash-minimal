@@ -1,6 +1,6 @@
 {
   "name": "stash-minimal",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "releaseDate": "2026-10-02",
   "private": true,
   "scripts": {

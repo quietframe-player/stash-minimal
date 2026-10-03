@@ -117,6 +117,8 @@ export default async function testTheme(page, options) {
     await page.getByRole('tab', { name: 'Plugins', exact: true }).click();
     await page.getByText('Stash Minimal', { exact: true }).first().waitFor();
     check('package appears in native settings', await page.getByText('Stash Minimal', { exact: true }).count() > 0);
+    const tableHeader = await colors('.package-manager thead');
+    check('package table uses neutral header', tableHeader.background === 'rgb(32, 32, 32)', tableHeader);
     check('settings has no horizontal overflow', await noOverflow());
     for (const tab of ['Interface', 'Tasks', 'System']) {
       await page.getByRole('tab', { name: tab, exact: true }).click();
@@ -129,6 +131,9 @@ export default async function testTheme(page, options) {
     await page.evaluate(() => document.fonts.ready);
     await page.waitForLoadState('networkidle');
     check('portrait has no horizontal overflow', await noOverflow());
+    const mobileNav = await page.locator('.navbar-buttons').evaluate(el => ({ top: el.getBoundingClientRect().top,
+      bottom: el.getBoundingClientRect().bottom, viewport: innerHeight }));
+    check('portrait navigation stays on screen', mobileNav.top >= 0 && mobileNav.bottom <= mobileNav.viewport, mobileNav);
     check('portrait search avoids zoom', await page.locator('.filtered-list-toolbar .search-term-input input').first().evaluate(el => getComputedStyle(el).fontSize) === '16px');
     await page.screenshot({ path: options.reportDir + '/' + options.browser + '-mobile.png' });
     await page.locator('.navbar-toggler').click();
@@ -136,6 +141,7 @@ export default async function testTheme(page, options) {
     check('mobile navigation opens', await page.locator('.navbar-collapse.show').count() === 1);
     check('open mobile navigation has no overflow', await noOverflow());
     check('mobile primary pages visible', await navigation.getByRole('link', { name: 'Scenes', exact: true }).isVisible());
+    check('mobile navigation stacks vertically', await navigation.locator('.navbar-nav').evaluate(el => getComputedStyle(el).flexDirection) === 'column');
     await navigation.getByRole('button', { name: 'More', exact: true }).click();
     check('mobile secondary pages visible', await navigation.getByRole('link', { name: 'Studios', exact: true }).isVisible());
     await navigation.getByRole('link', { name: 'Studios', exact: true }).click();
