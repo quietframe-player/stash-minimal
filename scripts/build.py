@@ -21,7 +21,7 @@ def build():
     output.mkdir(exist_ok=True)
     archive = output / "stash-minimal.zip"
     files = {p.relative_to(PLUGIN).as_posix(): p for p in PLUGIN.rglob("*") if p.is_file()}
-    files.update({name: ROOT / name for name in ["LICENSE", "README.md", "FONT_SOURCE.md"]})
+    files.update({name: ROOT / name for name in ["LICENSE", "README.md", "FONT_SOURCE.md", "DESIGN.md"]})
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as package:
         for name, path in sorted(files.items()):
             entry = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))

@@ -2,7 +2,9 @@
 
 A quiet, compact dark theme for Stash, inspired by [Vercel Geist](https://vercel.com/geist/introduction).
 
-Neutral surfaces, restrained borders, and locally bundled Geist Sans. Thumbnails carry the scene grid; menus, inputs, dialogs, and settings share the same design.
+Black canvas, neutral panels, restrained borders, and locally bundled Geist Sans. Thumbnails carry the scene grid; menus, inputs, dialogs, and settings share the same design.
+
+The [interface reference](DESIGN.md) records the measured dashboard styles and their native Stash counterparts. Settings cards, job queues, diagnostic dialogs, and the thumbnail scrubber use the same tokens.
 
 The plugin also changes the native interface through Stash's React plugin API:
 
@@ -15,6 +17,7 @@ The JavaScript uses Stash's existing React, Bootstrap components, and icons. No 
 
 ![Scene grid](site/assets/library.png)
 ![Mobile library](site/assets/mobile.png)
+![Native settings](site/assets/settings.png)
 
 ## Install
 

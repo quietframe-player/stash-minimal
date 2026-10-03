@@ -104,7 +104,7 @@ plugins_path: /config/plugins
                      f"/media/sintel-{index}.mp4"])
         (media / "source.mp4").unlink()
         graphql(base, "mutation($input:ScanMetadataInput!){metadataScan(input:$input)}", {
-            "input": {"paths": ["/media"], "scanGenerateCovers": True, "scanGenerateSprites": False,
+            "input": {"paths": ["/media"], "scanGenerateCovers": True, "scanGenerateSprites": True,
                       "scanGeneratePreviews": False, "scanGeneratePhashes": False}})
         for _ in range(90):
             state = graphql(base, "{findScenes{count scenes{id files{path}}} jobQueue{id}}")
@@ -144,7 +144,7 @@ plugins_path: /config/plugins
         if not all(receipt['passed'] for receipt in receipts):
             raise RuntimeError('Theme integration failed: ' + str(report))
         if args.update_screenshots:
-            for name in ['library', 'mobile', 'detail']:
+            for name in ['library', 'mobile', 'detail', 'settings']:
                 shutil.copyfile(report / (browsers[0] + '-' + name + '.png'), ROOT / 'site' / 'assets' / (name + '.png'))
         print('PASS: ' + str(report), flush=True)
     finally:
